@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Indian Railways — Delay Analytics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0E1E33;
+    --bg-deep:#0A1626;
+    --panel:#132A45;
+    --panel-2:#0F2038;
+    --border:rgba(232,220,195,0.12);
+    --border-soft:rgba(232,220,195,0.07);
+    --text:#F1EDE3;
+    --muted:#8FA0BE;
+    --cream:#E8DCC3;
+    --brass:#E3A83B;
+    --brass-dim:#B98A34;
+    --vermillion:#C1443B;
+    --sage:#4F9E85;
+    --slate:#7FA8D9;
+    --gray:#8590A8;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 500px at 15% -10%, rgba(227,168,59,0.07), transparent 60%),
+      radial-gradient(900px 600px at 100% 10%, rgba(127,168,217,0.06), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:0 26px 60px;}
+
+  /* ---------- Track motif ---------- */
+  .track-rule{
+    height:20px;margin:0 0 6px;position:relative;
+  }
+  .track-rule svg{width:100%;height:100%;display:block;}
+
+  /* ---------- Header ---------- */
+  header{
+    padding:34px 0 22px;
+    display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;
+  }
+  .brand{display:flex;align-items:center;gap:16px;}
+  .brand-mark{
+    width:50px;height:50px;border-radius:6px;
+    background:var(--panel-2);
+    border:1.5px solid var(--brass);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .brand-mark svg{width:26px;height:26px;}
+  h1{
+    font-family:'Zilla Slab',serif;font-weight:600;
+    font-size:30px;margin:0;letter-spacing:-0.01em;color:var(--cream);
+  }
+  .subtitle{color:var(--muted);font-size:13.5px;margin-top:5px;}
+  .coverage{
+    text-align:right;font-size:12.5px;color:var(--muted);line-height:1.6;
+    font-family:'Space Mono',monospace;
+    padding-top:6px;
+  }
+  .coverage b{color:var(--brass);font-weight:700;}
+
+  /* ---------- Departure board hero ---------- */
+  .board{
+    background:var(--bg-deep);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:26px 30px;
+    margin-bottom:26px;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;
+    box-shadow:inset 0 0 40px rgba(0,0,0,0.35);
+  }
+  .board-label{
+    font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
+    color:var(--gray);margin-bottom:14px;
+  }
+  .flap-row{display:flex;gap:6px;align-items:baseline;}
+  .flap{
+    background:#08131F;
+    border:1px solid rgba(227,168,59,0.25);
+    border-radius:4px;
+    font-family:'Space Mono',monospace;font-weight:700;
+    font-size:46px;line-height:1;
+    color:var(--brass);
+    padding:8px 4px;
+    min-width:36px;
+    text-align:center;
+    text-shadow:0 0 14px rgba(227,168,59,0.45);
+  }
+  .flap.unit{
+    font-size:20px;color:var(--muted);background:transparent;border:none;
+    align-self:center;padding-left:4px;text-shadow:none;
+  }
+  .board-desc{max-width:280px;font-size:13px;color:var(--muted);line-height:1.55;}
+  .board-desc b{color:var(--cream);}
+
+  /* ---------- Filters ---------- */
+  .filters{
+    display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;align-items:flex-end;
+    padding:16px 18px;
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;
+  }
+  .filters-title{
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.1em;
+    color:var(--gray);width:100%;margin-bottom:2px;
+  }
+  .filters-title::before{content:'▸ '; color:var(--brass);}
+  .filter-group{display:flex;flex-direction:column;}
+  .filters label{font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px;}
+  select{
+    appearance:none;-webkit-appearance:none;
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    padding:9px 32px 9px 12px;border-radius:6px;font-size:13.5px;font-family:'Inter',sans-serif;
+    cursor:pointer;min-width:150px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%238FA0BE'/></svg>");
+    background-repeat:no-repeat;background-position:right 12px center;
+  }
+  select:focus{outline:2px solid var(--slate);outline-offset:1px;}
+  #resetBtn{
+    background:transparent;border:1px solid var(--border);color:var(--muted);
+    padding:9px 14px;border-radius:6px;font-size:12.5px;cursor:pointer;font-family:'Inter',sans-serif;
+    transition:border-color .15s, color .15s;
+  }
+  #resetBtn:hover{border-color:var(--brass);color:var(--brass);}
+
+  /* ---------- KPI row ---------- */
+  .kpi-row{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;
+  }
+  .kpi{
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;
+    padding:18px 20px;
+  }
+  .kpi-icon{width:20px;height:20px;margin-bottom:12px;opacity:.85;}
+  .kpi-label{font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .kpi-value{font-family:'Zilla Slab',serif;font-size:28px;font-weight:600;letter-spacing:-0.01em;color:var(--cream);}
+  .kpi-sub{font-size:11.5px;color:var(--muted);margin-top:5px;}
+
+  /* ---------- Chart panels ---------- */
+  .grid{ display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:14px; }
+  .grid2{ display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px; }
+  .panel{
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;
+    padding:18px 20px 10px;
+  }
+  .panel h2{
+    font-family:'Zilla Slab',serif;font-size:16px;font-weight:600;margin:0 0 2px;color:var(--cream);
+  }
+  .panel .hint{font-size:11.5px;color:var(--muted);margin-bottom:12px;}
+  .chart-box{position:relative;height:250px;}
+  .chart-box.tall{height:290px;}
+
+  /* ---------- Table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;font-size:11px;
+    color:var(--gray);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--border);
+    font-family:'Space Mono',monospace;letter-spacing:.03em;
+  }
+  tbody td{padding:10px;border-bottom:1px dashed var(--border-soft);}
+  tbody tr:hover{background:rgba(227,168,59,0.05);}
+  .bar-cell{display:flex;align-items:center;gap:8px;}
+  .bar-track{flex:1;height:5px;background:var(--panel-2);border-radius:4px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;}
+  .tag{
+    display:inline-block;padding:2px 10px;border-radius:3px;font-size:10.5px;font-weight:600;
+    font-family:'Space Mono',monospace;letter-spacing:.02em;
+  }
+  .tag.major{background:rgba(193,68,59,0.15);color:var(--vermillion);}
+  .tag.moderate{background:rgba(227,168,59,0.15);color:var(--brass);}
+  .tag.minor{background:rgba(127,168,217,0.15);color:var(--slate);}
+  .tag.ontime{background:rgba(79,158,133,0.15);color:var(--sage);}
+  .tag.unknown{background:rgba(133,144,168,0.15);color:var(--gray);}
+
+  footer{
+    margin-top:24px;font-size:11px;color:var(--gray);text-align:center;
+    font-family:'Space Mono',monospace;
+  }
+  @media (max-width:900px){
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .grid,.grid2{grid-template-columns:1fr;}
+    .board{flex-direction:column;align-items:flex-start;}
+    .flap{font-size:34px;padding:6px 3px;min-width:26px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="track-rule">
+    <svg viewBox="0 0 1000 20" preserveAspectRatio="none">
+      <line x1="0" y1="10" x2="1000" y2="10" stroke="rgba(232,220,195,0.15)" stroke-width="1"/>
+      <line x1="0" y1="4" x2="1000" y2="4" stroke="rgba(232,220,195,0.06)" stroke-width="1"/>
+      <line x1="0" y1="16" x2="1000" y2="16" stroke="rgba(232,220,195,0.06)" stroke-width="1"/>
+    </svg>
+  </div>
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#E3A83B" stroke-width="1.6">
+          <rect x="4" y="3" width="16" height="13" rx="2"/>
+          <circle cx="8" cy="19" r="1.4" fill="#E3A83B" stroke="none"/>
+          <circle cx="16" cy="19" r="1.4" fill="#E3A83B" stroke="none"/>
+          <line x1="4" y1="10" x2="20" y2="10"/>
+          <line x1="8" y1="3" x2="8" y2="16" opacity=".5"/>
+          <line x1="16" y1="3" x2="16" y2="16" opacity=".5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Indian Railways — Delay Analytics</h1>
+        <div class="subtitle">Punctuality performance across 10 marquee trains, 2016–2025</div>
+      </div>
+    </div>
+    <div class="coverage">
+      <b id="rowCount">100</b> journeys tracked<br>
+      indian_railway_final_cleaned.csv
+    </div>
+  </header>
+
+  <div class="board">
+    <div>
+      <div class="board-label">NETWORK AVERAGE DELAY — CURRENT VIEW</div>
+      <div class="flap-row" id="flapRow"></div>
+    </div>
+    <div class="board-desc">
+      Figures update as you filter below — trimmed to the <b>delay_min</b> field,
+      which reflects each journey's actual scheduled-vs-arrival gap in minutes.
+    </div>
+  </div>
+
+  <div class="filters">
+    <div class="filters-title">FILTER JOURNEYS</div>
+    <div class="filter-group">
+      <label for="fYear">Year</label>
+      <select id="fYear"><option value="all">All years</option></select>
+    </div>
+    <div class="filter-group">
+      <label for="fTrain">Train</label>
+      <select id="fTrain"><option value="all">All trains</option></select>
+    </div>
+    <div class="filter-group">
+      <label for="fRoute">Route</label>
+      <select id="fRoute"><option value="all">All routes</option></select>
+    </div>
+    <div class="filter-group">
+      <label for="fStatus">Delay status</label>
+      <select id="fStatus"><option value="all">All statuses</option></select>
+    </div>
+    <button id="resetBtn">Reset filters</button>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="#7FA8D9" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <div class="kpi-label">Journeys in view</div>
+      <div class="kpi-value" id="kpiCount">—</div>
+      <div class="kpi-sub" id="kpiCountSub">of 100 total</div>
+    </div>
+    <div class="kpi">
+      <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="#E3A83B" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>
+      <div class="kpi-label">Average delay</div>
+      <div class="kpi-value" id="kpiAvgDelay">—</div>
+      <div class="kpi-sub">minutes per journey</div>
+    </div>
+    <div class="kpi">
+      <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="#4F9E85" stroke-width="1.6"><path d="M20 6L9 17l-5-5"/></svg>
+      <div class="kpi-label">On-time rate</div>
+      <div class="kpi-value" id="kpiOnTime">—</div>
+      <div class="kpi-sub" id="kpiOnTimeSub">on-time journeys</div>
+    </div>
+    <div class="kpi">
+      <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="#C1443B" stroke-width="1.6"><path d="M12 2L3 20h18L12 2z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r=".6" fill="#C1443B" stroke="none"/></svg>
+      <div class="kpi-label">Worst-performing train</div>
+      <div class="kpi-value" id="kpiWorst" style="font-size:18px;">—</div>
+      <div class="kpi-sub" id="kpiWorstSub">avg delay</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Average delay trend, by year</h2>
+      <div class="hint">Minutes, averaged across all journeys that year</div>
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Delay severity mix</h2>
+      <div class="hint">Share of journeys by status</div>
+      <div class="chart-box"><canvas id="statusDonut"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Average delay by route</h2>
+      <div class="hint">Minutes, ranked worst to best</div>
+      <div class="chart-box tall"><canvas id="routeBar"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Average delay by run frequency</h2>
+      <div class="hint">Daily vs. weekly vs. tri-weekly services</div>
+      <div class="chart-box tall"><canvas id="freqBar"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:20px;">
+    <h2>Train performance ranking</h2>
+    <div class="hint">Sorted by average delay, worst first</div>
+    <table>
+      <thead>
+        <tr><th>Train</th><th>Route</th><th>Trips</th><th>Avg delay</th><th>Worst status</th></tr>
+      </thead>
+      <tbody id="rankTable"></tbody>
+    </table>
+  </div>
+
+  <footer>DATASET: indian_railway_final_cleaned.csv · DELAY FIELD: delay_min · GENERATED DASHBOARD</footer>
+
+  <div class="track-rule">
+    <svg viewBox="0 0 1000 20" preserveAspectRatio="none">
+      <line x1="0" y1="10" x2="1000" y2="10" stroke="rgba(232,220,195,0.15)" stroke-width="1"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+const RAW = [{"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2016-01-01", "year": "2016", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "07:45:00", "delay_min": 75.0, "status": "Major delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2017-01-01", "year": "2017", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "06:50:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2018-01-01", "year": "2018", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "08:00:00", "delay_min": 90.0, "status": "Major delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2019-01-01", "year": "2019", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "06:40:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2020-01-01", "year": "2020", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "07:00:00", "delay_min": 30.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2021-01-07", "year": "2021", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "06:35:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2022-01-01", "year": "2022", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "07:10:00", "delay_min": 40.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2023-01-01", "year": "2023", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "08:00:00", "delay_min": 90.0, "status": "Major delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2024-01-01", "year": "2024", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "06:45:00", "delay_min": 15.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Begampura Express", "train_no": 12238, "source": "Varanasi", "destination": "Jammu", "date": "2025-01-01", "year": "2025", "distance(km)": 1260, "scheduled_arrival": "06:30:00", "actual_arrival": "07:20:00", "delay_min": 50.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Varanasi \u2192 Jammu", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2016-01-02", "year": "2016", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "11:20:00", "delay_min": 80.0, "status": "Major delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2017-01-07", "year": "2017", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "10:45:00", "delay_min": 45.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2018-01-06", "year": "2018", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "10:30:00", "delay_min": 30.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2019-01-05", "year": "2019", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "10:10:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2020-01-04", "year": "2020", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "10:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2021-01-02", "year": "2021", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "10:10:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2022-01-01", "year": "2022", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "12:00:00", "delay_min": 120.0, "status": "Major delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2023-01-07", "year": "2023", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "11:00:00", "delay_min": 60.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2024-01-06", "year": "2024", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "10:35:00", "delay_min": 35.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Gorakhpur-pune Weekly Express", "train_no": 15029, "source": "Gorakhpur", "destination": "Pune", "date": "2025-01-04", "year": "2025", "distance(km)": 1754, "scheduled_arrival": "10:00:00", "actual_arrival": "11:15:00", "delay_min": 75.0, "status": "Major delay", "run_frequency": "Weekly", "route": "Gorakhpur \u2192 Pune", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2016-01-01", "year": "2016", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2017-01-01", "year": "2017", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:40:00", "delay_min": 40.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2018-01-01", "year": "2018", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "11:10:00", "delay_min": 70.0, "status": "Major delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2019-01-01", "year": "2019", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:05:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2020-01-01", "year": "2020", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:30:00", "delay_min": 30.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2021-01-01", "year": "2021", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:50:00", "delay_min": 50.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2022-01-01", "year": "2022", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "11:15:00", "delay_min": 75.0, "status": "Major delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2023-01-01", "year": "2023", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:10:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2024-01-01", "year": "2024", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "11:00:00", "delay_min": 60.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Rajdhani Express", "train_no": 12301, "source": "Howrah", "destination": "New Delhi", "date": "2025-01-01", "year": "2025", "distance(km)": 1450, "scheduled_arrival": "10:00:00", "actual_arrival": "10:25:00", "delay_min": 25.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Howrah \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2016-01-01", "year": "2016", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2017-01-01", "year": "2017", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:45:00", "delay_min": 45.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2018-01-01", "year": "2018", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:10:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2019-01-01", "year": "2019", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:25:00", "delay_min": 25.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2020-01-01", "year": "2020", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:50:00", "delay_min": 50.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2021-01-01", "year": "2021", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:30:00", "delay_min": 30.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2022-01-01", "year": "2022", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "10:15:00", "delay_min": 75.0, "status": "Major delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2023-01-01", "year": "2023", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "10:15:00", "delay_min": 75.0, "status": "Major delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2024-01-01", "year": "2024", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:05:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Chennai Express", "train_no": 12604, "source": "Mumbai", "destination": "Chennai", "date": "2025-01-01", "year": "2025", "distance(km)": 1284, "scheduled_arrival": "09:00:00", "actual_arrival": "09:40:00", "delay_min": 40.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Mumbai \u2192 Chennai", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2016-01-01", "year": "2016", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2017-01-01", "year": "2017", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "09:00:00", "delay_min": 60.0, "status": "Moderate delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2018-01-01", "year": "2018", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:05:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2019-01-01", "year": "2019", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:10:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2020-01-01", "year": "2020", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2021-01-01", "year": "2021", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:23:00", "delay_min": 23.0, "status": "Moderate delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2022-01-01", "year": "2022", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:11:00", "delay_min": 11.0, "status": "Minor delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2023-01-01", "year": "2023", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:00:00", "delay_min": 0.0, "status": "On time", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "On Time"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2024-01-01", "year": "2024", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "09:40:00", "delay_min": 100.0, "status": "Major delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Garib Rath Express", "train_no": 12377, "source": "Kolkata", "destination": "New Delhi", "date": "2025-01-01", "year": "2025", "distance(km)": 1318, "scheduled_arrival": "08:00:00", "actual_arrival": "08:25:00", "delay_min": 25.0, "status": "Moderate delay", "run_frequency": "Tri-Weekly", "route": "Kolkata \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2016-01-01", "year": "2016", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:10:00", "delay_min": 10.0, "status": "Minor delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2017-01-01", "year": "2017", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "07:10:00", "delay_min": 70.0, "status": "Major delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2018-01-01", "year": "2018", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "08:10:00", "delay_min": 130.0, "status": "Major delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2019-01-01", "year": "2019", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:25:00", "delay_min": 25.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2020-01-01", "year": "2020", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:05:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2021-01-01", "year": "2021", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:45:00", "delay_min": 45.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2022-01-01", "year": "2022", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:15:00", "delay_min": 15.0, "status": "Minor delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2023-01-01", "year": "2023", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "07:00:00", "delay_min": 60.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2024-01-01", "year": "2024", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Shatabdi Express", "train_no": 12002, "source": "New Delhi", "destination": "RANI KAMLAPATI", "date": "2025-01-01", "year": "2025", "distance(km)": 707, "scheduled_arrival": "06:00:00", "actual_arrival": "06:09:00", "delay_min": 9.0, "status": "Minor delay", "run_frequency": "Daily", "route": "New Delhi \u2192 RANI KAMLAPATI", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2016-01-01", "year": "2016", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:01:00", "delay_min": 1.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2017-01-01", "year": "2017", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:14:00", "delay_min": 14.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2018-01-01", "year": "2018", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:45:00", "delay_min": 45.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2019-01-01", "year": "2019", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "11:10:00", "delay_min": 70.0, "status": "Major delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2020-01-01", "year": "2020", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:05:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2021-01-01", "year": "2021", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:23:00", "delay_min": 23.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2022-01-01", "year": "2022", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:14:00", "delay_min": 14.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2023-01-01", "year": "2023", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:29:00", "delay_min": 29.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2024-01-01", "year": "2024", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:20:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Lucknow Mail", "train_no": 12229, "source": "Lucknow", "destination": "New Delhi", "date": "2025-01-01", "year": "2025", "distance(km)": 491, "scheduled_arrival": "10:00:00", "actual_arrival": "10:34:00", "delay_min": 34.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Lucknow \u2192  New Delhi", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2016-01-01", "year": "2016", "distance(km)": 742, "scheduled_arrival": "10:00:00", "actual_arrival": "10:00:00", "delay_min": 0.0, "status": "On time", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "On Time"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2017-01-01", "year": "2017", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "17:40:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2018-01-01", "year": "2018", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "18:00:00", "delay_min": 40.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2019-01-01", "year": "2019", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "17:23:00", "delay_min": 3.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2020-01-01", "year": "2020", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "17:25:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2021-01-01", "year": "2021", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "18:15:00", "delay_min": 55.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2022-01-01", "year": "2022", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "18:05:00", "delay_min": 45.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2023-01-01", "year": "2023", "distance(km)": 742, "scheduled_arrival": "17:20:00", "actual_arrival": "18:25:00", "delay_min": 65.0, "status": "Major delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2024-01-01", "year": "2024", "distance(km)": 742, "scheduled_arrival": "01-01-1900 17:20", "actual_arrival": "17:20:00", "delay_min": 0.0, "status": "On time", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "On Time"}, {"train_name": "Kanyakumari Express", "train_no": 12633, "source": "Chennai Egmore", "destination": "Kanyakumari", "date": "2025-01-01", "year": "2025", "distance(km)": 742, "scheduled_arrival": "01-01-1900 17:20", "actual_arrival": "17:59:00", "delay_min": 39.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Chennai Egmore \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2016-01-01", "year": "2016", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "05:00:00", "delay_min": 30.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2017-01-01", "year": "2017", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "04:39:00", "delay_min": 9.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2018-01-01", "year": "2018", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "04:44:00", "delay_min": 14.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2019-01-01", "year": "2019", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "04:50:00", "delay_min": 25.0, "status": "Unknown", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2020-01-01", "year": "2020", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "04:31:00", "delay_min": 1.0, "status": "Minor delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2021-01-01", "year": "2021", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "04:30:00", "delay_min": 0.0, "status": "On time", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "On Time"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2022-01-01", "year": "2022", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "04:50:00", "delay_min": 20.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2023-01-01", "year": "2023", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "08:34:00", "delay_min": 244.0, "status": "Major delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2024-01-01", "year": "2024", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "07:38:00", "delay_min": 188.0, "status": "Major delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Yesvantpur\u2013Howrah Express", "train_no": 22832, "source": "Yesvantpur Jn", "destination": "Howrah", "date": "2025-01-01", "year": "2025", "distance(km)": 1915, "scheduled_arrival": "04:30:00", "actual_arrival": "05:30:00", "delay_min": 60.0, "status": "Moderate delay", "run_frequency": "Daily", "route": "Yesvantpur Jn \u2192 Howrah", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2016-01-01", "year": "2016", "distance(km)": 4198, "scheduled_arrival": "19:25:00", "actual_arrival": "19:30:00", "delay_min": 5.0, "status": "Minor delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2017-01-01", "year": "2017", "distance(km)": 4198, "scheduled_arrival": "19:25:00", "actual_arrival": "20:00:00", "delay_min": 35.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2018-01-01", "year": "2018", "distance(km)": 4198, "scheduled_arrival": "19:25:00", "actual_arrival": "20:23:00", "delay_min": 63.0, "status": "Major delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2019-01-01", "year": "2019", "distance(km)": 4198, "scheduled_arrival": "19:25:00", "actual_arrival": "19:40:00", "delay_min": 15.0, "status": "Minor delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2020-01-01", "year": "2020", "distance(km)": 4198, "scheduled_arrival": "19:25:00", "actual_arrival": "19:46:00", "delay_min": 22.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2021-01-02", "year": "2021", "distance(km)": 4198, "scheduled_arrival": "01-01-1900 19:25", "actual_arrival": "19:25:00", "delay_min": 0.0, "status": "On time", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "On Time"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2022-01-03", "year": "2022", "distance(km)": 4198, "scheduled_arrival": "01-01-1900 19:25", "actual_arrival": "19:26:00", "delay_min": 1.0, "status": "Minor delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2023-01-04", "year": "2023", "distance(km)": 4198, "scheduled_arrival": "01-01-1900 19:25", "actual_arrival": "19:34:00", "delay_min": 9.0, "status": "Minor delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2024-01-01", "year": "2024", "distance(km)": 4198, "scheduled_arrival": "01-01-1900 19:25", "actual_arrival": "19:47:00", "delay_min": 23.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}, {"train_name": "Vivek Express", "train_no": 15906, "source": "Dibrugarh", "destination": "Kanyakumari", "date": "2025-01-01", "year": "2025", "distance(km)": 4198, "scheduled_arrival": "01-01-1900 19:25", "actual_arrival": "19:56:00", "delay_min": 31.0, "status": "Moderate delay", "run_frequency": "Weekly", "route": "Dibrugarh \u2192 Kanyakumari", "delay_status": "Delayed"}];
+
+const STATUS_HEX = {
+  'Major delay':'#C1443B', 'Moderate delay':'#E3A83B',
+  'Minor delay':'#7FA8D9', 'On time':'#4F9E85', 'Unknown':'#8590A8'
+};
+const STATUS_TAGCLASS = {
+  'Major delay':'major','Moderate delay':'moderate','Minor delay':'minor','On time':'ontime','Unknown':'unknown'
+};
+
+function uniq(arr){ return [...new Set(arr)]; }
+function fill(sel, values){
+  values.forEach(v=>{
+    const o = document.createElement('option');
+    o.value=v; o.textContent=v;
+    sel.appendChild(o);
+  });
+}
+
+const fYear = document.getElementById('fYear');
+const fTrain = document.getElementById('fTrain');
+const fRoute = document.getElementById('fRoute');
+const fStatus = document.getElementById('fStatus');
+
+fill(fYear, uniq(RAW.map(d=>d.year)).sort());
+fill(fTrain, uniq(RAW.map(d=>d.train_name)).sort());
+fill(fRoute, uniq(RAW.map(d=>d.route)).sort());
+fill(fStatus, uniq(RAW.map(d=>d.status)).sort());
+
+let trendChart, statusDonut, routeBar, freqBar;
+
+function currentData(){
+  return RAW.filter(d=>
+    (fYear.value==='all' || d.year===fYear.value) &&
+    (fTrain.value==='all' || d.train_name===fTrain.value) &&
+    (fRoute.value==='all' || d.route===fRoute.value) &&
+    (fStatus.value==='all' || d.status===fStatus.value)
+  );
+}
+
+function avg(arr, key){
+  if(!arr.length) return 0;
+  return arr.reduce((s,d)=>s+d[key],0)/arr.length;
+}
+
+function groupAvg(rows, key){
+  const map = {};
+  rows.forEach(r=>{
+    if(!map[r[key]]) map[r[key]] = [];
+    map[r[key]].push(r.delay_min);
+  });
+  return Object.entries(map).map(([k,v])=>({key:k, avg: v.reduce((a,b)=>a+b,0)/v.length, count:v.length}));
+}
+
+function destroyIfExists(c){ if(c) c.destroy(); }
+
+function renderFlaps(avgDelay){
+  const str = avgDelay.toFixed(1); // e.g. "38.5"
+  const row = document.getElementById('flapRow');
+  row.innerHTML = '';
+  for(const ch of str){
+    const tile = document.createElement('div');
+    if(ch === '.'){
+      tile.className = 'flap unit';
+      tile.textContent = ch;
+    } else {
+      tile.className = 'flap';
+      tile.textContent = ch;
+    }
+    row.appendChild(tile);
+  }
+  const unit = document.createElement('div');
+  unit.className = 'flap unit';
+  unit.textContent = 'MIN';
+  row.appendChild(unit);
+}
+
+function render(){
+  const data = currentData();
+
+  // KPIs
+  document.getElementById('kpiCount').textContent = data.length;
+  document.getElementById('kpiCountSub').textContent = `of ${RAW.length} total`;
+  const avgDelay = data.length ? avg(data,'delay_min') : 0;
+  document.getElementById('kpiAvgDelay').textContent = avgDelay.toFixed(1);
+  renderFlaps(avgDelay);
+
+  const onTimeCount = data.filter(d=>d.delay_status==='On Time').length;
+  document.getElementById('kpiOnTime').textContent = data.length ? ((onTimeCount/data.length)*100).toFixed(0)+'%' : '0%';
+  document.getElementById('kpiOnTimeSub').textContent = `${onTimeCount} of ${data.length} journeys`;
+
+  const byTrain = groupAvg(data, 'train_name').sort((a,b)=>b.avg-a.avg);
+  if(byTrain.length){
+    document.getElementById('kpiWorst').textContent = byTrain[0].key;
+    document.getElementById('kpiWorstSub').textContent = `${byTrain[0].avg.toFixed(0)} min avg (${byTrain[0].count} trips)`;
+  } else {
+    document.getElementById('kpiWorst').textContent = '—';
+    document.getElementById('kpiWorstSub').textContent = 'no journeys in filter';
+  }
+
+  const gridColor = 'rgba(232,220,195,0.08)';
+  const tickColor = '#8FA0BE';
+  const labelColor = '#F1EDE3';
+
+  // Trend by year
+  const years = uniq(data.map(d=>d.year)).sort();
+  const trendVals = years.map(y=> avg(data.filter(d=>d.year===y), 'delay_min') );
+  destroyIfExists(trendChart);
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type:'line',
+    data:{ labels:years, datasets:[{
+      data:trendVals, borderColor:'#E3A83B', backgroundColor:'rgba(227,168,59,0.12)',
+      fill:true, tension:.35, pointRadius:3, pointBackgroundColor:'#E3A83B', borderWidth:2
+    }]},
+    options:{
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+' min avg'}}},
+      scales:{
+        x:{grid:{color:gridColor}, ticks:{color:tickColor, font:{family:'Space Mono', size:10.5}}},
+        y:{grid:{color:gridColor}, ticks:{color:tickColor}, beginAtZero:true, title:{display:true,text:'minutes',color:tickColor}}
+      },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+
+  // Status donut
+  const statuses = uniq(data.map(d=>d.status));
+  const statusCounts = statuses.map(s=> data.filter(d=>d.status===s).length );
+  destroyIfExists(statusDonut);
+  statusDonut = new Chart(document.getElementById('statusDonut'), {
+    type:'doughnut',
+    data:{ labels:statuses, datasets:[{
+      data:statusCounts,
+      backgroundColor: statuses.map(s=>STATUS_HEX[s]||'#8590A8'),
+      borderColor:'#132A45', borderWidth:2
+    }]},
+    options:{
+      plugins:{legend:{position:'bottom', labels:{color:labelColor, boxWidth:10, font:{size:11}}}},
+      cutout:'62%', responsive:true, maintainAspectRatio:false
+    }
+  });
+
+  // Route bar
+  const byRoute = groupAvg(data,'route').sort((a,b)=>b.avg-a.avg);
+  destroyIfExists(routeBar);
+  routeBar = new Chart(document.getElementById('routeBar'), {
+    type:'bar',
+    data:{ labels:byRoute.map(r=>r.key), datasets:[{
+      data:byRoute.map(r=>r.avg), backgroundColor:'#7FA8D9', borderRadius:3
+    }]},
+    options:{
+      indexAxis:'y',
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.x.toFixed(1)+' min avg'}}},
+      scales:{
+        x:{grid:{color:gridColor}, ticks:{color:tickColor}, beginAtZero:true},
+        y:{grid:{display:false}, ticks:{color:labelColor, font:{size:11}}}
+      },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+
+  // Frequency bar
+  const byFreq = groupAvg(data,'run_frequency').sort((a,b)=>b.avg-a.avg);
+  destroyIfExists(freqBar);
+  freqBar = new Chart(document.getElementById('freqBar'), {
+    type:'bar',
+    data:{ labels:byFreq.map(r=>r.key), datasets:[{
+      data:byFreq.map(r=>r.avg), backgroundColor:'#B98A34', borderRadius:5, maxBarThickness:60
+    }]},
+    options:{
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+' min avg'}}},
+      scales:{
+        x:{grid:{display:false}, ticks:{color:labelColor}},
+        y:{grid:{color:gridColor}, ticks:{color:tickColor}, beginAtZero:true, title:{display:true,text:'minutes',color:tickColor}}
+      },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+
+  // Ranking table
+  const routeByTrain = {};
+  data.forEach(d=>{ routeByTrain[d.train_name] = d.route; });
+  const worstStatusByTrain = {};
+  uniq(data.map(d=>d.train_name)).forEach(t=>{
+    const rows = data.filter(d=>d.train_name===t);
+    const order = ['Major delay','Moderate delay','Minor delay','Unknown','On time'];
+    let worst = 'On time';
+    rows.forEach(r=>{ if(order.indexOf(r.status) < order.indexOf(worst)) worst = r.status; });
+    worstStatusByTrain[t] = worst;
+  });
+
+  const maxAvg = byTrain.length ? byTrain[0].avg : 1;
+  const tbody = document.getElementById('rankTable');
+  tbody.innerHTML = byTrain.map(t=>{
+    const pct = maxAvg ? (t.avg/maxAvg*100) : 0;
+    const color = t.avg>60?'#C1443B':(t.avg>25?'#E3A83B':'#4F9E85');
+    const tagClass = STATUS_TAGCLASS[worstStatusByTrain[t.key]] || 'unknown';
+    return `<tr>
+      <td>${t.key}</td>
+      <td style="color:#8FA0BE;font-size:12px;">${routeByTrain[t.key]||''}</td>
+      <td>${t.count}</td>
+      <td class="bar-cell" style="min-width:160px;">
+        <span style="width:42px;display:inline-block;font-family:'Space Mono',monospace;">${t.avg.toFixed(0)}m</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:${color};"></span></span>
+      </td>
+      <td><span class="tag ${tagClass}">${worstStatusByTrain[t.key]}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+[fYear, fTrain, fRoute, fStatus].forEach(sel=> sel.addEventListener('change', render));
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  [fYear, fTrain, fRoute, fStatus].forEach(sel=> sel.value='all');
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
